@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+{% load static %}
+
+{% block content %}
+
+    <div class="text-center mw-500 m-auto">
+        <div class="m-5">
+            <h2>만화, 웹툰 영상화</h2>
+        </div>
+        <div>
+            <form action="{% url 'animateapp:create' %}"
+                  enctype="multipart/form-data"
+                  method="post">
+                {% csrf_token %}
+                {% bootstrap_form form layout='horizontal'%}
+
+                <div class="m-5">
+                    <input type="submit" class="btn btn-dark rounded-pill px-5">
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+
+
+{% endblock %}
