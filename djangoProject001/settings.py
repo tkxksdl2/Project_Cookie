@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 import os
 from pathlib import Path
+#충돌 오류 때문에 기록...
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 

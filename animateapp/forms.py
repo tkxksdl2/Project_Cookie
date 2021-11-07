@@ -11,4 +11,7 @@ class AnimateCreationForm(ModelForm):
             # 생성시 안보이게 처리
             'ani': HiddenInput(),
         }
+        labels = {
+            'left_right': '만화책 방향',
+        }
 

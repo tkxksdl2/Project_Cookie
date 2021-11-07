@@ -90,6 +90,8 @@ def img_text_easyocr(img):
     #리스트 원소 합쳐서 문자여 총 길이 확인
     text_result = "".join(result)
     text_result_len = len(text_result)
+    print("길이:" + str(len(text_result)))
+    print(text_result)
     #문자열 길이 반환
     return text_result_len
 
