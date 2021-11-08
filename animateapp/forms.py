@@ -12,6 +12,7 @@ class AnimateCreationForm(ModelForm):
             'ani': HiddenInput(),
         }
         labels = {
+            #생성시 라벨 변경
             'left_right': '만화책 방향',
         }
 

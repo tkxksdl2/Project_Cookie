@@ -88,7 +88,7 @@ def img_text_easyocr(img):
     #이미지를 받아 문자열 리스트를 반환해줌
     result = reader.readtext(img, detail=0)
     #리스트 원소 합쳐서 문자여 총 길이 확인
-    text_result = "".join(result)
+    text_result = " ".join(result)
     text_result_len = len(text_result)
     print("길이:" + str(len(text_result)))
     print(text_result)
@@ -116,7 +116,7 @@ def view_seconds(image_list):
     #리스트에서 한 cut씩 가져옮
     for image in image_list:
         #기본 5초에 이미지의 글자수를 10으로 나눈만큼 반복하여 같은 이미지 기록
-        each_image_duration = 5 + int(image[2]/10)
+        each_image_duration = 3 + int(image[2]/10)
         for _ in range(each_image_duration):
             video.write(image[1])
 
