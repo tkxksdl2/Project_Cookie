@@ -3,6 +3,7 @@ from django.db import models
 
 
 class Animate(models.Model):
+    #맨처음 이미지만 등록
     image = models.ImageField(upload_to='ani_image/', null=True, blank=True)
     #만화책 방향이 좌->우 인지 우->좌 인지 확인
     left_right_choice = (('좌', '좌->우'), ('우', '우->좌'))
@@ -17,6 +18,7 @@ class Animate(models.Model):
     created_at = models.DateField(auto_now_add=True, null=True)
 
 
+#다중이미지 처리를 위한 모델 생성
 class AnimateImage(models.Model):
     animate = models.ForeignKey(Animate, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='ani_image/', null=True)

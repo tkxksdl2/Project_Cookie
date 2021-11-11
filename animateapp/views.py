@@ -25,16 +25,22 @@ class AnimateCreateView(CreateView):
     template_name = 'animateapp/create.html'
 
     def post(self, request, *args, **kwargs):
+        #form받아옴
         form_class = self.get_form_class()
         form = self.get_form(form_class)
-
+        #이미지 파일들만 받아오기
         files = request.FILES.getlist('image')
+        #Animate 모델에는 첫이미지만 저장되게 하기
         form.instance.image = files[0]
         animate = form.save(commit=False)
         animate.save()
+
         if form.is_valid():
+            #이미지 파일 np array형식으로 저장하기위한 리스트 생성
             image_list = []
+            #cut이미지와 문자열길이가 저장 될 리스트
             full_list = []
+            #이미지 파일을 하나씩 불러와서 np array형식으로 image_list에 저장
             for f in files:
                 l_r = str(form.instance.left_right)
                 animate_image = AnimateImage(animate=animate, image=f)
@@ -43,14 +49,18 @@ class AnimateCreateView(CreateView):
                 img_array = np.array(im)
                 image_list.append(img_array)
 
+            #이미지 리스트를 cut분리 해주는 함수에 넣어줌
+            #반환값은 cut이미지
             cuts = make_cut(image_list)
-            print(len(cuts))
+            #분리된 cut들을 문자열길이 측정해주는 함수에 넣어줌
             image_len_list = image_len(cuts)
+            #([이미지,문자열길이],[이미지,문자열길이],...) 형태로 저장되게 설정
             full_list.extend(image_len_list)
 
+            #리스트를 영상처리해주는 함수에 넣고 저장해줌
+            #반환값은 저장된 영상위치
             video_path = view_seconds(full_list)
-            # video_list = view_seconds(full_list)
-            # video_path = effect_video(video_list)
+            #다시 model에 저장
             animate = form.save(commit=False)
             animate.ani = video_path
             animate.save()
@@ -79,6 +89,7 @@ def split_cut(img, polygon):
     cv2.bitwise_not(bg, bg, mask=mask)
     cut = bg + dst
 
+    #하얀 배경에 중간위치에 cut이미지 넣어서 저장해줌
     height = 650
     width = 450
     back_image = np.ones((height, width, 3), np.uint8)*255
@@ -106,7 +117,7 @@ def sort_cut(contours):
     sort_contours = [contours[i] for i in index]
     return sort_contours
 
-
+#model 함수..
 def make_cut(img_list):
     IMAGE_SIZE = 224
     model = load_model('model/best_gray_model_2.h5')
@@ -192,8 +203,6 @@ def view_seconds(image_list):
 
     # 객체를 반드시 종료시켜주어야 한다
     video.release()
-    # 모든 화면 종료해준다.
-    #cv2.destroyAllWindows()
 
     # 영상 저장 위치 반환
     return video_name
