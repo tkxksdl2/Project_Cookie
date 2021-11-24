@@ -10,6 +10,8 @@ pip install django-bootstrap4
 
 pip install opencv-python
 
+pip install scikit-learn
+
 gpu 설정(해야함...)
 
 conda install cudatoolkit

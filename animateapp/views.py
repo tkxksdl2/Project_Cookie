@@ -14,6 +14,7 @@ import numpy as np
 import base64
 import gc
 import tensorflow as tf
+from sklearn import preprocessing
 
 # 충돌 오류 때문에 기록...
 import os
@@ -80,16 +81,17 @@ class AnimateCreateView(CreateView):
                 # 객체 생성과 동시에 말풍선과 컷을 매칭합니다.
                 FrameBook = ComicFrameBook(ani_effect, bubbles, cuts, polygons, bubble_centers,
                                            page_len=len(image_list))
+                # ==================================================수정=========================================
+                text_bubble_len_list = FrameBook.txt_per_bub_list
                 img_list = FrameBook.makeframe_proc()
 
-            # =========================================== 수정된 부분 =============================================
             # comic 책 방식
             else:
-                img_list = make_page_cut(image_list, l_r)
-            # ====================================================================================================
+                img_list, text_bubble_len_list = make_page_cut(image_list, l_r)
 
             # 반환값은 저장된 영상위치
-            video_path = view_seconds(img_list, t_c, ani_effect, tran_effect)
+            video_path = view_seconds(img_list, t_c, ani_effect, tran_effect, text_bubble_len_list)
+            # =================================================================================================
 
             # gpu session 비워주기
             tf.keras.backend.clear_session()
@@ -138,6 +140,7 @@ def image_preproc(img_list):  # 이 코드는 전처리부분만을 가져왔습
     return labels_list[0], labels_list[1]  # 0 : cut, 1 : bubble
 
 
+# ==================================================수정===================================================
 def split_cut_b(img, polygon, page_num, is_bubble=False):
     x, y, w, h = cv2.boundingRect(polygon)  # 폴리곤으로 bounding 박스 그림
     croped = img[y:y + h, x:x + w].copy()  # 원본 이미지에서 자름.
@@ -168,9 +171,25 @@ def split_cut_b(img, polygon, page_num, is_bubble=False):
     # 변경점. 이제 모든 이미지는 x, y, w, h, mask, matching_num 값을 포함합니다.
     # 컷에 말풍선이 없거나 말풍선이 잘못 검출 된 경우를 위해 여기서 초기화합니다.
     if is_bubble:
-        return {'image': dst, 'xywh': [x, y, w, h], 'mask': mask, 'matching_cut_num': -1}
+        txt_per_bub = find_txt_cnt(dst, mask)
+        return {'image': dst, 'xywh': [x, y, w, h], 'mask': mask, 'matching_cut_num': -1, 'txt_per_bub': txt_per_bub}
     else:
         return {'image': dst, 'xywh': [x, y, w, h], 'mask': mask, 'matching_bub_num': [], 'padding': padding}
+
+
+def find_txt_cnt(bubble, mask):
+    _, thresh_mask = cv2.threshold(mask, 127, 1, 0) # 이진화
+    bubble_px_cnt = np.sum(thresh_mask)
+    bg = np.ones_like(mask)
+    res = bubble.copy()
+    cv2.bitwise_not(res, res, mask=bg)
+    res_gray = cv2.cvtColor(res, cv2.COLOR_RGB2GRAY) # 이미지 1채널로 변경
+    _, res_bit = cv2.threshold(res_gray, 127, 1, 0)  ##  이진화
+    only_text = cv2.bitwise_and(thresh_mask, thresh_mask, mask=res_bit)
+    bubble_txt_cnt = np.sum(only_text)
+    txt_per_bub = bubble_txt_cnt / bubble_px_cnt
+    return txt_per_bub
+# ===========================================================================================================
 
 
 def sort_cut_b(img_list, contours, read, is_bubble=False):
@@ -227,14 +246,6 @@ def make_cut_bubble(img_list, labels, read, is_bubble=False):
             bubble_centers_list.append([])
             continue
 
-        # 아직 잘못 나온 이미지 처리 안함..
-        # print("여기")
-        # print(np.shape(contours))
-        # print(contours[0].shape)
-        # for cont in contours:
-        #     if cont[0] < 200:
-        #         contours.remove(cont)
-
         # 컷 정렬
         if is_bubble:
             contours, centroids, bubble_centers = sort_cut_b(img_list, contours, read, is_bubble=True)
@@ -265,6 +276,7 @@ def make_cut_bubble(img_list, labels, read, is_bubble=False):
         return cuts_list, centroids_list, polygons_list  # 폴리곤은 말풍선 위치결정을 위해서 뽑습니다.
 
 
+# =========================================수정 ===============================================================
 class ComicFrameBook():
 
     def __init__(self, ani_effect, bubbles, cuts, cut_polygons, bubble_centers, page_len):
@@ -275,7 +287,7 @@ class ComicFrameBook():
         self.bubble_centers = bubble_centers
 
         self.page_len = page_len
-
+        self.txt_per_bub_list = []
         self.page_count = 0  # 결과 출력용도
 
         for i in range(self.page_len):
@@ -284,6 +296,7 @@ class ComicFrameBook():
                 continue
 
             self.matching_bubble2cut(self.cuts[i], self.bubbles[i], self.bubble_centers[i], self.cut_polygons[i])
+# =================================================================================================================
 
     # 이건 단일 페이지에 작동합니다.
     def matching_bubble2cut(self, cuts, bubbles, bubble_centers, polygons, ):
@@ -300,12 +313,14 @@ class ComicFrameBook():
                     # 때문에 깊은복사 이슈가 생겨서 리스트가 중복됩니다. 아직 수정하지 못했습니다.
                     # 그래서 현재는 클래스를 다시 선언하시려면 컷 분리 부분도 다시 실행해주셔야합니다.
 
+# ===============================================수정 ==============================================================
     # 매칭된 컷-버블 정보를 이용해 make_bubblescope_cut 함수를 실행합니다.
     def makeframe_proc(self):
         frame_pages = []
         self.page_count = 0
         for page_num in range(self.page_len):  # 페이지단위로 움직입니다.
             frames = []
+            txt_per_bub_page = []
             for idx, cut in enumerate(self.cuts[page_num]):
                 bub_nums = cut['matching_bub_num']  # 각 컷에 매칭되는 말풍선을 찾습니다.
 
@@ -313,7 +328,7 @@ class ComicFrameBook():
                 # 말풍선이 없는 경우. 지금은 이미지 하나만 그대로 들어갑니다. 나중에 개수를 수정할 필요가 있습니다.
                 if len(bub_nums) == 0:
                     frames.append([cut['image']])
-
+                    txt_per_bub_page.append(0.05)
                     self.page_count += 1
                     continue
 
@@ -321,12 +336,14 @@ class ComicFrameBook():
                 for bub_num in bub_nums:
                     target_bub = self.bubbles[page_num][bub_num]
                     bub_centroid = self.bubble_centers[page_num][bub_num]
+                    txt_per_bub_page.append(target_bub['txt_per_bub'])
                     frames.append(
                         self.make_bubblescope_cut(self.ani_effect, target_bub, cut, bub_centroid))
 
             frame_pages.append(frames)
-
+            self.txt_per_bub_list.append(txt_per_bub_page)
         return frame_pages
+    # ============================================================================================================
 
     # 컷 한장, 버블 한장당 작동합니다.
     # 확대 배율은 현재 임의로 설정 해 두었습니다.
@@ -383,7 +400,7 @@ class ComicFrameBook():
         return bubble_scope_cuts
 
 
-# ================================================ 추가된 부분 ==========================================================
+# =======================================================수정===============================================
 # 폴리곤으로 컷별 분리
 def plus_cut(img, polygons):
     cuts = []
@@ -399,6 +416,7 @@ def plus_cut(img, polygons):
         cut = bg + dst
         cuts.append(cut)
     return cuts
+# =============================================================================================================
 
 
 # 컷 정렬
@@ -538,6 +556,46 @@ def bubble_effect(cuts_list, bubbles_list, bubble_cents):
     return final_list
 
 
+# ====================================================추가=============================================
+def bubble_len(cuts_list, bubbles_list, bubble_cents):
+    bub_len_list = []
+    for i, row_img in enumerate(cuts_list):
+        page_len = []
+        if not bubble_cents[i][0]:
+            no_bubble = []
+            for img in row_img:
+                no_bubble.append(0)
+            bub_len_list.append(no_bubble)
+        else:
+            for j, row_cut_img in enumerate(row_img):
+                img_shape = row_cut_img.shape[0]
+                bubble_img = bubbles_list[i][-1]
+                polygons = bubble_cents[i][j]
+                if not polygons:
+                    page_len.append(0)
+                else:
+                    for polygon in polygons:
+                        # 말풍선 영역 자르기
+                        x, y, w, h = cv2.boundingRect(polygon)
+                        bubble_roi = bubble_img[y:y + h, x:x + w].copy()
+                        pts = polygon - polygon.min(axis=0)
+                        # 마스크 설정
+                        mask = np.zeros(bubble_roi.shape[:2], np.uint8)
+                        cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
+                        mask_inv = cv2.bitwise_not(mask)
+                        # 마스크로 자르기
+                        cut_bubble = cv2.bitwise_and(bubble_roi, bubble_roi, mask=mask)
+                        gray_bubble = cv2.cvtColor(cut_bubble, cv2.COLOR_BGR2GRAY)
+                        binarizer = preprocessing.Binarizer(threshold=150)
+                        bub_binary = binarizer.transform(255 - (mask_inv + gray_bubble))
+                        bub_len = np.sum(bub_binary) / img_shape
+                        bub_len = np.round(bub_len, 2)
+                        page_len.append(bub_len)
+            bub_len_list.append(page_len)
+    return bub_len_list
+# ======================================================================================
+
+
 # 페이지 별 컷 최종 함수
 def make_page_cut(img_list, read):
     cuts_list = []
@@ -562,14 +620,14 @@ def make_page_cut(img_list, read):
     bubbles_list, bubble_polygons = make_polygons(padding_img_list, padding_bubble_labels, read)
     bubble_cents = bubble_cent(cuts_polygons, bubble_polygons)
     final_list = bubble_effect(cuts_list, bubbles_list, bubble_cents)
+# =========================================================수정======================================
+    bub_len_list = bubble_len(cuts_list, bubbles_list, bubble_cents)
+    return final_list, bub_len_list
+# ========================================================================================================
 
-    return final_list
-# ================================================================================================================
 
-
-# =================================================== 수정된 부분 ====================================================
 # [이미지,글자수]의 리스트를 받아 영상으로 만들고 저장하는 함수
-def view_seconds(image_list, t_c, ani_effect, tran_effect):
+def view_seconds(image_list, t_c, ani_effect, tran_effect, text_bubble_len_list):
     # 영상이름 오늘 날자와 시간으로 지정
     nowdate = datetime.datetime.now()
     daytime = nowdate.strftime("%Y-%m-%d_%H%M%S")
@@ -578,7 +636,7 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
     out_path = 'media/' + video_name
     # video codec 설정
     fourcc = cv2.VideoWriter_fourcc(*'AVC1')
-
+# ======================================================수정==========================================
     # 여기서부터 컷과 책 형태 분리 하기
     # toon 형식
     if t_c == 'T':
@@ -589,9 +647,16 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
         # 3중 리스트로 되어있음
         for idx, image in enumerate(image_list):
             for i, j in enumerate(image):
+                bubble_len = text_bubble_len_list[idx][i] # ==============================
+                if bubble_len > 0.09:
+                    fpp = 80
+                elif bubble_len < 0.05:
+                    fpp = 20
+                else:
+                    fpp = 50 # ===============================================================
                 # 말풍선 효과 넣었을 때
                 if ani_effect == 'B':
-                    # 이미지 resize 하여서 2500, 2500 중간위치에 넣기
+                    # 이미지 resize 하여서 2300, 2300 중간위치에 넣기
                     for k in j:
                         cols, rows, channel = k.shape
                         shape_list = [2300 / cols, 2300 / rows]
@@ -603,9 +668,9 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
                         back_image[space_height:space_height + cols, space_width:space_width + rows] = k
                         video.write(back_image)
                     # 중간 이미지 60개 추가--나중에 이미지 글자 픽셀값으로 변경 될 수있음
-                    for _ in range(60):
+                    for _ in range(fpp):#==========================================
                         video.write(back_image)
-                    # 거꾸로 이미지 resize 하여서 2500, 2500 중간위치에 넣기
+                    # 거꾸로 이미지 resize 하여서 2300, 2300 중간위치에 넣기
                     for l in j[::-1]:
                         cols, rows, channel = l.shape
                         shape_list = [2300 / cols, 2300 / rows]
@@ -619,7 +684,7 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
                     last_frame = back_image
                 # 말풍선 효과 안넣었을 때
                 else:
-                    # 이미지 resize 하여서 2500, 2500 중간위치에 넣기
+                    # 이미지 resize 하여서 2300, 2300 중간위치에 넣기
                     image_hei, image_wid = j[0].shape[:2]
                     shape_list = [2300 / image_hei, 2300 / image_wid]
                     img_result = cv2.resize(j[0], (0, 0), fx=min(shape_list), fy=min(shape_list),
@@ -629,12 +694,12 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
                     space_width = int((wid - rows) / 2)
                     space_height = int((hei - cols) / 2)
                     # 말풍선 효과 길이만큼 보여주기- 나중에 이미지 글자 픽셀값으로 변경 될 수있음
-                    each_image_duration = (len(j) * 2) + 60
+                    each_image_duration = (len(j) * 2) + fpp#================================
                     for k in range(each_image_duration):
                         back_image[space_height:space_height + cols, space_width:space_width + rows] = img_result
                         video.write(back_image)
                     last_frame = back_image
-
+# ======================================================================================================
                 # 여기서부터는 영상 전환 효과
                 # image_list가 마지막이 아니고 image가 마지막일경우
                 if (i + 1 == len(image)) and (idx + 1 < len(image_list)):
@@ -697,17 +762,27 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
         # 3중 리스트로 되어있음
         for idx, image in enumerate(image_list):
             for i, j in enumerate(image):
+                # ============================================ 수정 =======================================
+                bubble_len = text_bubble_len_list[idx][i]
+                if bubble_len > 1.5:
+                    fpp = 80
+                elif bubble_len < 0.5:
+                    fpp = 20
+                else:
+                    fpp = 50
                 # 컷 등장 디졸브 효과
                 for p in range(1, int(fps + 1)):
                     alpha = p / fps
+
                     frame = cv2.addWeighted(frame, 1 - alpha, j[0], alpha, 0)
                     video.write(frame)
                 # 말풍선 효과 넣었을 때
                 if ani_effect == 'B':
-                    for k in j:
+                    for u, k in enumerate(j):
+
                         video.write(k)
                         imglast = k
-                    for _ in range(60):
+                    for _ in range(fpp):
                         video.write(imglast)
                     for l in j[::-1]:
                         video.write(l)
@@ -715,11 +790,11 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
                     last_frame = la_img
                 # 말풍선 효과 안넣었을 때
                 else:
-                    each_image_duration = (len(j) * 2) + 60
+                    each_image_duration = (len(j) * 2) + fpp
                     for k in range(each_image_duration):
                         video.write(j[0])
                     last_frame = j[0]
-
+# =======================================================================================
             # 여기서부터는 영상 전환 효과
             # 마지막 이미지에는 효과 넣지 않기
             if idx + 1 >= len(image_list):
@@ -751,7 +826,6 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
                 video.write(frame)
         # 객체를 반드시 종료시켜주어야 한다
         video.release()
-        # ==========================================================================================================
 
     # 영상 저장 위치 반환
     return video_name
