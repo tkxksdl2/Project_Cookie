@@ -581,7 +581,7 @@ def view_seconds(image_list, t_c, ani_effect, tran_effect):
     # 여기서부터 컷과 책 형태 분리 하기
     # toon 형식
     if t_c == 'T':
-        wid, hei = 2500, 2500
+        wid, hei = 2300, 2300
         fps = 35.0
         video = cv2.VideoWriter(out_path, fourcc, fps, (wid, hei))
         back_image = np.zeros((hei, wid, 3), np.uint8)
