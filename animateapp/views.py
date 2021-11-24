@@ -387,12 +387,13 @@ class ComicFrameBook():
 # 폴리곤으로 컷별 분리
 def plus_cut(img, polygons):
     cuts = []
-    croped = img.copy()
-    # opencv 비트 연산으로 이미지 합성
-    mask = np.zeros(croped.shape[:2], np.uint8)
-    bg = np.ones_like(croped, np.uint8) * 255
-    for polygon in polygons:
-        cv2.drawContours(mask, [polygon], -1, (255, 255, 255), -1, cv2.LINE_AA)
+    #opencv 비트 연산으로 이미지 합성
+    for idx, polygon in enumerate(polygons):
+        croped = img.copy()
+        mask = np.zeros(croped.shape[:2], np.uint8)
+        bg = np.ones_like(croped, np.uint8) * 255
+        for poly in polygons[:idx + 1]:
+            cv2.drawContours(mask, [poly], -1, (255, 255, 255), -1, cv2.LINE_AA)
         dst = cv2.bitwise_and(croped, croped, mask=mask)
         cv2.bitwise_not(bg, bg, mask=mask)
         cut = bg + dst
