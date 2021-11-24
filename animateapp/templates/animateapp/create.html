@@ -6,11 +6,15 @@
     <div id="loading">
         <img src="{% static 'mainimage/loading.gif' %}" alt="loading">
     </div>
-    <div class="mw-500 m-auto">
+    <div class="mw-600 m-auto">
         <div class="text-center m-5">
             <h2>만화, 웹툰 영상화</h2>
         </div>
         <div>
+            <a href="{% static 'sample image.zip' %}"
+               class="btn btn-success rounded-pill px-5" download="zip">
+                샘플 이미지 다운로드
+            </a>
             <form action="{% url 'animateapp:create' %}"
                   enctype="multipart/form-data"
                   method="post" id="next">
@@ -19,7 +23,7 @@
                 <div class="text-center">
                     <p>* 이미지이름 순서대로 영상이 제작됩니다.</p>
                     <p>* 이미지를 10장 까지만 넣어주세요.</p>
-                    <p>* 흑백 페이지만 넣어주세요</p>
+                    <p>* 같은 사이즈의 흑백 이미지만 넣어주세요</p>
                 </div>
                 <div class="text-center" id="list">
                 </div>
@@ -30,12 +34,11 @@
             </form>
         </div>
     </div>
-    {# 로딩이미지 가렸다가 form전송 시 나타나게하기 #}
     <script>
         $(document).ready(function() {
             $('#loading').hide();
             $('#next').submit(function(){
-                  var fileCheck = document.getElementById("files").value;
+                var fileCheck = document.getElementById("files").value;
                 if(!fileCheck){
                     alert("파일을 첨부해 주세요");
                     return false;
@@ -43,6 +46,7 @@
                 $('#loading').show();
                 return true;
             });
+
         });
 
         function handleFileSelect(evt) {
@@ -70,7 +74,6 @@
                             '" title="', escape(theFile.name),
                             '"/>',
                         ].join('');
-
                     document.getElementById('list').insertBefore(span, null);
                     };
                 })(f);
