@@ -198,33 +198,25 @@ def sort_cut_b(img_list, contours, read, is_bubble=False):
     n = 0
     centroids = []
     bubble_centers = []
-
     for contour in contours:
         cx = contour.min(axis=0)[0][0] // int(width / 5)  # 이것은 순서를 정하기 위해서 뽑습니다.
         cy = contour.min(axis=0)[0][1] // int(height / 5)
-
         centroids.append([cx, cy, n])
         n += 1
-
     if read == 'L':
         centroids.sort(key=lambda x: (x[1], x[0]))
     elif read == 'R':
         centroids.sort(key=lambda x: (x[1], -x[0]))
     centroids = np.array(centroids)
-
     index = centroids[:, 2].tolist()
     sort_contours = [contours[i] for i in index]
-
     if is_bubble:
         for contour in sort_contours:
             centroid = cv2.moments(contour)
             bx = int(centroid['m10'] / centroid['m00'])  # 이건 말풍선과 컷을 매칭하기 위해서 뽑습니다.
             by = int(centroid['m01'] / centroid['m00'])
-
             bubble_centers.append([bx, by, n])
-
         return sort_contours, centroids, bubble_centers  # 이걸 이용해 컷과 매칭합니다.
-
     return sort_contours, centroids
 
 
