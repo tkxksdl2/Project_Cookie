@@ -1,31 +1,20 @@
-# project2_2
+# PROJECT COOKIE!
 
-python3.8버전
+## 요구사항 
+    python3.8버전
+    
+    요구사항 > requirements.txt
 
-pycharm 에서 django 패키지 설치 또는 시작 후
+    gpu 설정(해야함...)
+    conda install cudatoolkit
+    conda install cudnn
+    pip install tensorflow-gpu
 
-pip install pillow
+    media 폴더에 ani 폴더 생성해주기
+    최상위 폴더에 model 폴더 생성하고 모델 2개 넣어주기
 
-pip install django-bootstrap4
+    python manage.py migrate
 
-pip install opencv-python
+--------------------------
 
-pip install scikit-learn
-
-gpu 설정(해야함...)
-
-conda install cudatoolkit
-
-conda install cudnn
-
-pip install tensorflow-gpu
-
-설치
-
-media 폴더에 ani 폴더 생성해주기
-
-최상위 폴더에 model 폴더 생성하고 모델 2개 넣어주기
-
-python manage.py migrate
-
-해주기
+README is working in progress!
