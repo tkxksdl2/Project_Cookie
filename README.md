@@ -45,4 +45,4 @@
 
 # 실행화면
 
-<image width='50%' src='https://user-images.githubusercontent.com/79143006/174873054-4604f335-778b-4035-858d-1f15a86d6119.gif'>
+<image width='75%' src='https://user-images.githubusercontent.com/79143006/174873054-4604f335-778b-4035-858d-1f15a86d6119.gif'>
