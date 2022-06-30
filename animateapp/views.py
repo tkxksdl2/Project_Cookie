@@ -12,10 +12,10 @@ import base64
 import gc
 import tensorflow as tf
 
-from funcToon.cuts import make_cut_bubble, image_preproc
-from funcToon.makeFrame import ComicFrameBook
-from funcComic.cuts import make_page_cut
-from funcVideo.video import view_seconds
+from animateapp.funcToon.cuts import make_cut_bubble, image_preproc
+from animateapp.funcToon.makeFrame import ComicFrameBook
+from animateapp.funcComic.cuts import make_page_cut
+from animateapp.funcVideo.video import view_seconds
 
 # 충돌 오류 때문에 기록...
 import os
